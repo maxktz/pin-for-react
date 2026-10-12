@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Pin for React",
+  "name": "React Pin",
   "version": "1.0.0",
   "description": "Point at UI in your React dev server and hand it to a coding agent: component, source file:line, and your notes as one prompt.",
-  "homepage_url": "https://github.com/maxktz/pin-for-react",
+  "homepage_url": "https://github.com/maxktz/react-pin",
   "permissions": ["activeTab", "scripting", "storage", "contextMenus"],
   "optional_host_permissions": ["http://*/*", "https://*/*"],
   "action": {
-    "default_title": "Pin for React: show or hide on this site (right-click for more)",
+    "default_title": "React Pin: show or hide on this site (right-click for more)",
     "default_icon": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" }
   },
   "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },

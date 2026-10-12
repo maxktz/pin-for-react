@@ -1,11 +1,11 @@
 # Chrome Web Store listing
 
-Everything the developer dashboard asks for, in order. Upload `dist/pin-for-react-<version>.zip`
+Everything the developer dashboard asks for, in order. Upload `dist/react-pin-<version>.zip`
 (`scripts/build.sh`).
 
 ## Store listing
 
-**Name** (from the manifest): Pin for React
+**Name** (from the manifest): React Pin
 
 **Summary** (from the manifest, 126/132 characters):
 Point at UI in your React dev server and hand it to a coding agent: component, source file:line, and your notes as one prompt.
@@ -42,7 +42,7 @@ HOW IT RUNS
 PRIVATE BY DESIGN
 No servers, accounts, analytics or tracking. It reads the page you point at and writes to your clipboard; nothing leaves your browser.
 
-Open source (MIT): https://github.com/maxktz/pin-for-react
+Open source (MIT): https://github.com/maxktz/react-pin
 
 Not affiliated with Meta or the React team.
 ```
@@ -55,8 +55,8 @@ Not affiliated with Meta or the React team.
 - Marquee promo tile (optional): `marquee-1400x560.png`
 - Promo video (optional, YouTube link only): `docs/demo.mp4` if you upload it to YouTube
 
-**Official URL:** none (needs a verified site). **Homepage URL:** https://github.com/maxktz/pin-for-react
-**Support URL:** https://github.com/maxktz/pin-for-react/issues
+**Official URL:** none (needs a verified site). **Homepage URL:** https://github.com/maxktz/react-pin
+**Support URL:** https://github.com/maxktz/react-pin/issues
 
 ## Privacy practices
 
@@ -77,7 +77,7 @@ Lets developers point at elements of a web page they are building and copy a des
 **Data usage:** check nothing. It does not collect any of the listed data types.
 Certify all three: not sold to third parties; not used for unrelated purposes; not used for creditworthiness or lending.
 
-**Privacy policy URL:** https://github.com/maxktz/pin-for-react/blob/main/PRIVACY.md
+**Privacy policy URL:** https://github.com/maxktz/react-pin/blob/main/PRIVACY.md
 
 ## Distribution
 

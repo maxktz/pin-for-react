@@ -1,4 +1,4 @@
-// Pin for React: point at UI and hand it to a coding agent. Its island (bottom center, shown on
+// React Pin: point at UI and hand it to a coding agent. Its island (bottom center, shown on
 // local dev servers) has a Pin toggle and can be dragged to any edge; dragging it out of the window
 // hides it for the site, and the extension's toolbar button shows it again (or on any other site).
 //   The toggle shortcut (⌃P on macOS, Alt+Shift+P elsewhere) turns it on or off. While on, hover
@@ -360,7 +360,7 @@
   // Shown when loaded (local dev servers, sites the user enabled, or the toolbar button), unless
   // dragged out on this site (remembered for the origin) or turned off for localhost in the options.
   // The toolbar button shows it again.
-  const HIDDEN = 'pin-for-react:hidden'
+  const HIDDEN = 'react-pin:hidden'
   const hiddenHere = () => {
     try {
       return localStorage.getItem(HIDDEN) === '1'
@@ -439,7 +439,7 @@
 
   // The island sits on one edge of the window (bottom by default) at a fraction along it. Dragging
   // moves it freely; on release it snaps to the nearest edge, and the spot is remembered.
-  const POS = 'pin-for-react:position'
+  const POS = 'react-pin:position'
   const MARGIN = 16
   let pos = { edge: 'bottom', at: 0.5 }
   try {
@@ -655,7 +655,7 @@
   // Settings and shortcut names arrive from bridge.js (asked for on load, resent on change). The
   // first ones decide whether the island shows by itself.
   let first = true
-  document.addEventListener('pin-for-react:settings', e => {
+  document.addEventListener('react-pin:settings', e => {
     try {
       settings = { ...settings, ...JSON.parse(e.detail) }
     } catch {
@@ -669,6 +669,6 @@
     renderBar()
   })
   window.__pin = api
-  document.dispatchEvent(new CustomEvent('pin-for-react:hello'))
+  document.dispatchEvent(new CustomEvent('react-pin:hello'))
   renderBar()
 })()

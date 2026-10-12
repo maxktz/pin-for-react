@@ -1,8 +1,8 @@
 # Privacy policy
 
-_Pin for React, last updated 2026-10-12_
+_React Pin, last updated 2026-10-12_
 
-Pin for React does not collect, store, sell or share any personal data. It has no servers,
+React Pin does not collect, store, sell or share any personal data. It has no servers,
 accounts, analytics, telemetry or ads.
 
 What it does, all inside your browser:
@@ -23,5 +23,5 @@ Permissions: `activeTab` and `scripting` load it into the current tab when you c
 button or press its shortcut; `storage` keeps your settings; `contextMenus` adds "Always load on
 this site" to the toolbar button. Access to other sites is optional and asked for per site.
 
-The source code is public: https://github.com/maxktz/pin-for-react. Questions:
-https://github.com/maxktz/pin-for-react/issues
+The source code is public: https://github.com/maxktz/react-pin. Questions:
+https://github.com/maxktz/react-pin/issues

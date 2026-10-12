@@ -9,9 +9,9 @@
       chrome.storage.sync.get('settings'),
       chrome.runtime.sendMessage('keys').catch(() => ({})),
     ])
-    document.dispatchEvent(new CustomEvent('pin-for-react:settings', { detail: JSON.stringify({ ...settings, keys }) }))
+    document.dispatchEvent(new CustomEvent('react-pin:settings', { detail: JSON.stringify({ ...settings, keys }) }))
   }
-  document.addEventListener('pin-for-react:hello', send)
+  document.addEventListener('react-pin:hello', send)
   chrome.storage.onChanged.addListener(send)
   send()
 })()

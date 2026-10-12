@@ -1,4 +1,4 @@
-# Pin for React
+# React Pin
 
 A browser extension for pointing at UI and handing it to a coding agent (Claude Code, Codex, Cursor,
 …). Hover an element in your React dev server and copy its component and source line, or click a
