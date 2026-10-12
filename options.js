@@ -12,7 +12,8 @@ for (const id of Object.keys(DEFAULTS)) $(id).addEventListener('change', e => sa
 const renderKeys = async () => {
   for (const row of document.querySelectorAll('.cmd')) row.remove()
   const commands = await chrome.commands.getAll()
-  for (const c of commands.filter(c => c.description).reverse()) {
+  // copy-feedback shows in the in-page row instead ("⌃C or <shortcut>").
+  for (const c of commands.filter(c => c.description && c.name !== 'copy-feedback').reverse()) {
     const row = document.createElement('div')
     row.className = 'row cmd'
     row.append(Object.assign(document.createElement('span'), { textContent: c.description }))

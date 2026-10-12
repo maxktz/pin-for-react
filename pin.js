@@ -400,12 +400,16 @@
       src,
       span('keys', `  ·  ${mac ? '⌘C' : 'Ctrl+C'} to copy`),
     )
-    resolve(d).then(r => r.source && hovered === el && (src.textContent = `  ${r.source}`))
-    // 4px above the element, or below it when there's no room; kept inside the window.
+    // 4px above the element, or below it when there's no room; kept inside the window (again once
+    // the source arrives, which makes it wider).
+    const place = () => {
+      const h = tip.offsetHeight
+      tip.style.left = `${Math.max(4, Math.min(r.left, innerWidth - tip.offsetWidth - 4))}px`
+      tip.style.top = `${r.top - h - 4 >= 4 ? r.top - h - 4 : Math.min(r.bottom + 4, innerHeight - h - 4)}px`
+    }
     tip.style.display = 'block'
-    const h = tip.offsetHeight
-    tip.style.left = `${Math.max(4, Math.min(r.left, innerWidth - tip.offsetWidth - 4))}px`
-    tip.style.top = `${r.top - h - 4 >= 4 ? r.top - h - 4 : Math.min(r.bottom + 4, innerHeight - h - 4)}px`
+    place()
+    resolve(d).then(res => res.source && hovered === el && ((src.textContent = `  ${res.source}`), place()))
   }
 
   // Off keeps the notes but hides them: pins and their buttons come back when it's turned on.
