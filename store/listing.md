@@ -77,7 +77,7 @@ Lets developers point at elements of a web page they are building and copy a des
 **Data usage:** check nothing. It does not collect any of the listed data types.
 Certify all three: not sold to third parties; not used for unrelated purposes; not used for creditworthiness or lending.
 
-**Privacy policy URL:** https://github.com/maxktz/react-pin/blob/main/PRIVACY.md
+**Privacy policy URL:** https://maxktz.github.io/react-pin/privacy/
 
 ## Distribution
 
