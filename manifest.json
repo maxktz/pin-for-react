@@ -1,18 +1,35 @@
 {
   "manifest_version": 3,
-  "name": "React Pin",
-  "version": "0.1.0",
-  "description": "Point at UI and hand it to a coding agent: copy an element, or pin feedback on several and copy them as one prompt.",
-  "permissions": ["activeTab", "scripting"],
+  "name": "Pin for React",
+  "version": "1.0.0",
+  "description": "Point at UI in your React dev server and hand it to a coding agent: component, source file:line, and your notes as one prompt.",
+  "homepage_url": "https://github.com/maxktz/pin-for-react",
+  "permissions": ["activeTab", "scripting", "storage", "contextMenus"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
   "action": {
-    "default_title": "React Pin: show or hide on this site",
+    "default_title": "Pin for React: show or hide on this site (right-click for more)",
     "default_icon": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" }
   },
   "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },
   "background": { "service_worker": "background.js" },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "commands": {
+    "toggle-pin": {
+      "suggested_key": { "default": "Alt+Shift+P", "mac": "MacCtrl+P" },
+      "description": "Turn Pin on or off"
+    },
+    "copy-feedback": {
+      "description": "Copy all feedback notes"
+    }
+  },
   "content_scripts": [
     {
-      "matches": ["http://localhost/*", "https://localhost/*", "http://127.0.0.1/*", "http://*.localhost/*", "https://*.localhost/*"],
+      "matches": ["http://localhost/*", "https://localhost/*", "http://127.0.0.1/*", "https://127.0.0.1/*", "http://*.localhost/*", "https://*.localhost/*"],
+      "js": ["bridge.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://localhost/*", "https://localhost/*", "http://127.0.0.1/*", "https://127.0.0.1/*", "http://*.localhost/*", "https://*.localhost/*"],
       "js": ["pin.js"],
       "world": "MAIN",
       "run_at": "document_idle"

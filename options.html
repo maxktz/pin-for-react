@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pin for React options</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f7f7f8; --card: #fff; --text: #1c1c1f; --dim: #6b6b74; --line: #e4e4e7; --accent: #5b67f0 }
+  @media (prefers-color-scheme: dark) { :root { --bg: #121214; --card: #1c1c1f; --text: #e7e7ea; --dim: #8d8d95; --line: #2c2c31 } }
+  * { box-sizing: border-box }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 16px 64px }
+  h1 { font-size: 20px; margin: 0 0 4px; display: flex; align-items: center; gap: 10px }
+  h1 img { width: 28px; height: 28px }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--dim); margin: 28px 0 8px }
+  .sub { color: var(--dim); margin: 0 }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px 16px }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line) }
+  .row:first-child { border-top: 0 }
+  .row small { display: block; color: var(--dim) }
+  kbd { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; white-space: nowrap }
+  button { font: inherit; border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: 8px; padding: 4px 10px; cursor: pointer }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff }
+  input[type=text] { font: inherit; flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: 8px; padding: 4px 8px }
+  input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); flex: none }
+  .empty { color: var(--dim) }
+  .err { color: #d33; font-size: 13px }
+  a { color: var(--accent) }
+</style>
+</head>
+<body>
+<main>
+  <h1><img src="icons/48.png" alt="">Pin for React</h1>
+  <p class="sub">Point at UI and hand it to a coding agent.</p>
+
+  <h2>Shortcuts</h2>
+  <section id="keys">
+    <div class="row"><span>Copy the hovered element <small>while Pin is on, unless text is selected</small></span><kbd id="key-copy-el"></kbd></div>
+    <div class="row"><span>Copy all feedback <small>while Pin is on</small></span><kbd id="key-copy-all"></kbd></div>
+    <div class="row"><span>Turn Pin off</span><kbd>Esc</kbd></div>
+    <div class="row"><span>Change the extension shortcuts in your browser's shortcut settings.</span><button id="shortcuts">Open shortcut settings</button></div>
+  </section>
+
+  <h2>Where it runs</h2>
+  <section>
+    <label class="row"><span>Show the island on localhost automatically <small>localhost, 127.0.0.1 and *.localhost. Off: only when you click the toolbar button.</small></span><input type="checkbox" id="localhost"></label>
+    <div class="row"><span>Anywhere else, the toolbar button loads it into the current tab. Sites below load it on every visit (right-click the toolbar button: "Always load on this site").</span></div>
+    <div id="sites"></div>
+    <form class="row" id="add"><input type="text" id="origin" placeholder="https://staging.example.com" aria-label="Site to add"><button class="primary">Add site</button></form>
+    <div class="err" id="add-err" hidden></div>
+  </section>
+
+  <h2>Copied text</h2>
+  <section>
+    <label class="row"><span>CSS selector <small>Always included when the source file isn't known.</small></span><input type="checkbox" id="selector"></label>
+    <label class="row"><span>Page URL and viewport size <small>At the top of copied feedback.</small></span><input type="checkbox" id="page"></label>
+  </section>
+
+  <h2>Privacy</h2>
+  <section><div class="row"><span>Nothing leaves your browser. Pin for React has no servers, analytics or tracking; it only reads the page you point it at and copies text to your clipboard. <a href="https://github.com/maxktz/pin-for-react/blob/main/PRIVACY.md" target="_blank">Privacy policy</a> · <a href="https://github.com/maxktz/pin-for-react" target="_blank">Source</a></span></div></section>
+</main>
+<script src="options.js"></script>
+</body>
+</html>
