@@ -1,5 +1,5 @@
 // Settings live in chrome.storage.sync ({ settings }); bridge.js passes them to pin.js.
-const DEFAULTS = { localhost: true, selector: true, page: true }
+const DEFAULTS = { localhost: true, selector: false, page: true }
 const $ = id => document.getElementById(id)
 const mac = /mac/i.test(navigator.userAgentData?.platform ?? navigator.platform)
 

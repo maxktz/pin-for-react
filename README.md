@@ -9,7 +9,16 @@ few elements, write a note on each, and copy them all as one prompt.
 - **One element:** turn Pin on, hover, press **⌘C** (Ctrl+C on Windows/Linux):
   ```md
   ### StatCard "37"
-  Element: `app/StatCard.tsx:7` · `div.card.stat:nth-of-type(2) > strong.stat-value`
+  Source: `app/StatCard.tsx:7`
+  Stack: StatCard › Page
+  ```
+  For a component from a shared package or design system, you get where your app uses it, and
+  where it's defined:
+  ```md
+  ### MainCard in AgentsPage
+  Source: `src/pages/AgentsPage.tsx:7`
+  Defined in: `packages/ui/src/main-card.tsx:4`
+  Stack: MainCard (ui) › AgentsPage
   ```
 - **Feedback on several:** click elements and type a note on each (numbered pins mark them), then
   **Copy feedback**:
@@ -19,12 +28,14 @@ few elements, write a note on each, and copy them all as one prompt.
   Viewport: 1280×800
 
   ### 1. StatCard "37"
-  Element: `app/StatCard.tsx:7` · `div.card.stat:nth-of-type(2) > strong.stat-value`
+  Source: `app/StatCard.tsx:7`
+  Stack: StatCard › Page
   Feedback: Make the drop less alarming: amber, not red
 
-  ### 2. Page "Export report"
-  Element: `app/page.tsx:18` · `button.btn`
-  Feedback: Secondary style, not the main action
+  ### 2. OrderRow "Pending" in Orders
+  Source: `app/Orders.tsx:22`
+  Key: 3020
+  Feedback: Pending should link to the order
   ```
 
 ## Install
@@ -53,7 +64,7 @@ bind). The copy keys only act while Pin is on, so normal copy and print work as 
 - **The toolbar button** shows or hides it on the current site. Right-click it for **Always load on
   this site**.
 - **Options** (right-click the toolbar button → Options): shortcuts, whether it shows on localhost
-  by itself, sites it always loads on, and whether copied text includes the selector and page URL.
+  by itself, sites it always loads on, and whether copied text always includes the selector, and the page URL.
 
 ## Where it runs
 
@@ -72,8 +83,14 @@ React keeps each element's component on its DOM node; Pin runs in the page's own
   `eval` module. Next.js server components are mapped by the Next dev server itself, the same way
   its error overlay does.
 - **React 18 and earlier** have `_debugSource` (file and line, from Babel's JSX transform).
-- **Without React** (or in a production build) you still get a selector that matches only that
-  element, plus its text.
+- **Which line:** the element's component may live in a library or another package of your repo
+  (a design system). Pin follows React's "who rendered this" chain up to the first spot in your
+  app's own code (**Source**), names library components by package rather than by path (**Stack**),
+  and, for your own shared packages, also gives the component's file (**Defined in**). A package
+  used through its built `dist` is mapped back to its source when it ships source maps.
+- **Text and keys:** short text is included only when it identifies the element ("37", a button
+  label); a list row gets its React `key`.
+- **Without React** (or in a production build) you get a selector that matches only that element.
 
 Tested with Next.js 16 (Turbopack and webpack, client and server components), Vite with React 18
 and 19, and webpack 5 with `cheap-module-source-map` (what Create React App uses).

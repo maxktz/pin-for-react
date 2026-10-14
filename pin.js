@@ -27,53 +27,88 @@
     typeof type === 'function' ? type.displayName || type.name : type?.displayName || type?.render?.displayName || type?.render?.name || null
   const component = name => name && /^[A-Z]/.test(name) && !/^(Fragment|Suspense|StrictMode|Provider|Consumer)$/.test(name)
 
-  // Components that rendered the element, nearest first (StatCard, Page): its owners, which is
-  // where its JSX is written. React 19 owners can be server components ({ name, env, owner }).
-  // Without owner data (production builds), the components above it in the tree.
-  const componentsOf = fiber => {
-    const out = []
-    const ownerOf = o => o._debugOwner ?? o.owner ?? null
-    for (let o = ownerOf(fiber); o && out.length < 4; o = ownerOf(o)) {
-      const name = o.tag === undefined ? o.name : nameOf(o.type)
-      if (component(name) && out.at(-1) !== name) out.push(name)
-    }
-    for (let f = fiber; f && !out.length && out.length < 4; f = f.return) {
-      const name = typeof f.type === 'string' ? null : nameOf(f.type)
-      if (component(name)) out.push(name)
-    }
-    return out
-  }
-
-  // Where the element's JSX is. React ≤18 keeps _debugSource (file and line, added by Babel).
-  // React 19 keeps the stack of the render that created the element (_debugStack): its first frame
-  // past React's JSX runtime is the spot, but in served (transformed, bundled) code, so it goes
-  // through a source map (see locate). Frames come from the element and then its parents, and the
-  // first one that lands outside node_modules wins.
-  const LIBRARY = /node_modules|\/@vite\/|\/\.vite\/deps\/|react-dom|react-server-dom/
+  // The element's creation chain: the element, then the component that rendered it, then the one
+  // that rendered that (React's owners), each with the spot its JSX was written and the component
+  // that spot is in. React ≤18 keeps the spot as _debugSource (from Babel). React 19 keeps the
+  // stack of the render that created it (_debugStack): its first frame past React's JSX runtime is
+  // the spot, in served (bundled) code, so it goes through source maps (see locate). Owners can be
+  // server components ({ name, env, owner, debugStack }).
   const RUNTIME = /(^|\.)(jsxDEV|jsxs?|createElement|fakeJSXCallSite|react_stack_bottom_frame)$/
-  const framesOf = fiber => {
-    const out = []
-    for (let f = fiber; f && out.length < 6; f = f.return) {
-      if (f._debugSource) {
-        out.push({ url: f._debugSource.fileName, line: f._debugSource.lineNumber })
-        continue
-      }
-      for (const line of f._debugStack?.stack?.split('\n').slice(1) ?? []) {
-        const m = line.match(/^\s*at (?:(.*?) \()?(.+?):(\d+):(\d+)\)?$/)
-        if (!m || RUNTIME.test(m[1] ?? '') || LIBRARY.test(m[2])) continue
-        out.push({ url: m[2], line: +m[3], col: +m[4], tag: typeof f.type === 'string' ? f.type : nameOf(f.type) })
-        break
-      }
-    }
-    return out
-  }
-
-  const sourceOf = async fiber => {
-    for (const frame of framesOf(fiber)) {
-      const at = await locate(frame)
-      if (at && !/node_modules/.test(at.file)) return at.line ? `${tidy(at.file)}:${at.line}` : tidy(at.file)
+  const REACT = /\/@vite\/|\/\.vite\/deps\/|react-dom|react-server-dom|node_modules\/react\//
+  const ownerOf = o => o._debugOwner ?? o.owner ?? null
+  const ownerName = o => o && (o.tag === undefined ? o.name : nameOf(o.type))
+  const typeName = node => (node.tag === undefined ? node.name : typeof node.type === 'string' ? node.type : nameOf(node.type))
+  const frameOf = node => {
+    if (node._debugSource) return { url: node._debugSource.fileName, line: node._debugSource.lineNumber }
+    for (const line of (node._debugStack ?? node.debugStack)?.stack?.split('\n').slice(1) ?? []) {
+      const m = line.match(/^\s*at (?:(.*?) \()?(.+?):(\d+):(\d+)\)?$/)
+      if (m && !RUNTIME.test(m[1] ?? '') && !REACT.test(m[2])) return { url: m[2], line: +m[3], col: +m[4], tag: typeName(node) }
     }
     return null
+  }
+  const chainOf = fiber => {
+    const out = []
+    for (let node = fiber, n = 0; node && n < 16; node = ownerOf(node), n++) {
+      const name = ownerName(ownerOf(node))
+      out.push({ name: component(name) ? name : null, frame: frameOf(node) })
+    }
+    return out
+  }
+
+  // Without owner data (production builds): the components above it in the tree.
+  const componentsOf = fiber => {
+    const names = chainOf(fiber).map(e => e.name).filter((n, i, a) => n && a[i - 1] !== n)
+    for (let f = fiber; f && !names.length; f = f.return) {
+      const name = typeof f.type === 'string' ? null : nameOf(f.type)
+      if (component(name)) names.push(name)
+    }
+    return names
+  }
+
+  // Which code a file is: a library (node_modules, or a package's built dist that has no map back
+  // to its source), shared UI (another package in the repo, or components/ui), or the app. The app
+  // is wherever the outermost app-side spot of the chain lives (the page, the root).
+  const kindOf = file => {
+    const nm = [...file.matchAll(/node_modules\/(@[^/]+\/[^/]+|[^/.][^/]*)/g)].pop()
+    if (nm) return { lib: true, pkg: nm[1] }
+    const dist = file.match(/([^/]+)\/(dist|build|esm|cjs)\//)
+    if (dist) return { lib: true, pkg: dist[1] }
+    const dir = file.match(/^(.*?)(?:^|\/)(src|app|pages|components|lib)\//)
+    return { lib: false, dir: dir ? dir[1] : file.replace(/\/?[^/]*$/, ''), ui: /(^|\/)components\/ui\//.test(file) }
+  }
+
+  // The chain resolved: { source, definedIn, context, stack }.
+  //   source: the first spot in app code ("where your app renders this"), file:line
+  //   definedIn: the element's own spot when that's shared UI rather than the app
+  //   context: the app component that spot is in (heading: "MainCard in AgentsPage")
+  //   stack: component names, nearest first; library and shared ones tagged with their package
+  const sourceOf = async fiber => {
+    const chain = chainOf(fiber)
+    const spots = await Promise.all(chain.map(async e => {
+      const at = e.frame && (await locate(e.frame))
+      return at && !/^https?:\/\/[^/]+\/?$/.test(at.file) ? { ...e, file: tidy(at.file), line: at.line } : { ...e }
+    }))
+    for (const s of spots) if (s.file) Object.assign(s, kindOf(s.file))
+    const appDir = spots.findLast(s => s.file && !s.lib && !s.ui)?.dir
+    for (const s of spots) if (s.file && !s.lib && (s.ui || s.dir !== appDir)) s.shared = s.ui ? 'ui' : s.dir.split('/').pop() || s.dir
+    const at = s => (s.line ? `${s.file}:${s.line}` : s.file)
+    const app = spots.find(s => s.file && !s.lib && !s.shared)
+    const first = spots.find(s => s.file)
+    const stack = []
+    const appIndex = app ? spots.indexOf(app) : spots.length
+    spots.forEach((s, i) => {
+      // Past the app's spot, library components are framework wrappers (routers, providers).
+      if (!s.name || stack.length >= 4 || (i > appIndex && s.lib)) return
+      const pkg = s.lib ? s.pkg : s.shared
+      const label = pkg ? `${s.name} (${pkg})` : s.name
+      if (stack.at(-1) !== label) stack.push(label)
+    })
+    return {
+      source: app ? at(app) : first && !first.lib ? at(first) : null,
+      definedIn: first && first !== app && !first.lib && first.line ? at(first) : null,
+      context: app && app.name !== spots[0]?.name ? app.name : null,
+      stack,
+    }
   }
 
   // A served position → { file, line } in the original source, or { file } when there's no map:
@@ -91,6 +126,8 @@
         if (/^https?:/.test(url)) at = lookup(await scriptMap(url), line, col, tag)
         else if (url.startsWith('webpack-internal:///')) at = lookup(await evalMap(url), line, col, tag)
         if (!at && next()) at = await nextFrame(url, line, col)
+        // A package's built file (dist/*.js) with its own map: one more hop, back to its source.
+        if (at?.col && /\.[cm]?js$/.test(at.file)) at = lookup(await builtMap(at.file), at.line, at.col, tag) ?? at
         return at ?? { file: url }
       })().catch(() => ({ file: url })))
     }
@@ -111,6 +148,16 @@
       const code = await text(url)
       const i = code?.lastIndexOf('sourceMappingURL=') ?? -1
       return i < 0 ? null : readMap(code.slice(i + 17).match(/^[^\s'"\\]+/)?.[0], url)
+    })
+
+  // The map a built file ships next to it (Vite serves files outside the app at /@fs/<path>).
+  const builtMap = file =>
+    cache(maps, `built:${file}`, async () => {
+      const url = /^https?:/.test(file) ? file : file.startsWith('/') && /\/@fs\//.test(performance.getEntriesByType('resource').map(e => e.name).join(' ')) ? `${location.origin}/@fs${file}` : null
+      if (!url || !sameOrigin(url)) return null
+      const json = await text(`${url.replace(/[?#].*$/, '')}.map`)
+      if (!json?.trim().startsWith('{')) return null
+      return readMap(`data:application/json,${encodeURIComponent(json)}`, url)
     })
 
   const evalMap = url =>
@@ -163,7 +210,7 @@
     }
     // Relative sources are relative to the map (Vite: "StatCard.jsx" next to /src/StatCard.jsx).
     const source = (s.map.sourceRoot ? s.map.sourceRoot.replace(/\/?$/, '/') : '') + file
-    return { file: /^([a-z][\w+.-]*:|\/)/i.test(source) ? source : new URL(source, m.base).href, line: at + 1 }
+    return { file: /^([a-z][\w+.-]*:|\/)/i.test(source) ? source : new URL(source, m.base).href, line: at + 1, col: at === seg[2] ? seg[3] + 1 : 1 }
   }
 
   // Source map "mappings" → lines of [genCol, source, origLine, origCol] (Base64 VLQ).
@@ -219,7 +266,12 @@
   // A source path as an agent would write it: project-relative when it can tell. Absolute paths
   // (React ≤18, Turbopack maps) start at the first src/app/pages/packages/apps folder.
   const tidy = file => {
-    if (/^https?:/.test(file)) return decodeURI(file.replace(/^https?:\/\/[^/]+\/?/, '').replace(/[?#].*$/, ''))
+    if (/^https?:/.test(file)) {
+      const path = decodeURI(file.replace(/^https?:\/\/[^/]+/, '').replace(/[?#].*$/, ''))
+      // Vite serves files outside the app at /@fs/<absolute path>.
+      if (!path.startsWith('/@fs/')) return path.replace(/^\//, '')
+      file = path.slice(4)
+    }
     let f = decodeURI(file)
       .replace(/\\/g, '/')
       .replace(/^about:\/\/React\/Server\//, '')
@@ -234,7 +286,27 @@
     return f.replace(/^\.\//, '')
   }
 
-  const textOf = el => (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60)
+  // Text only names small things ("37", "Export report", a table cell); a card or a table's text
+  // says nothing about which one it is.
+  const textOf = el => {
+    const text = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim()
+    return text.length <= 40 && el.querySelectorAll('*').length <= 3 ? text : ''
+  }
+
+  // A list row's key (which agent, which order): the nearest keyed element that has keyed siblings
+  // of the same type, up to the first component above the element.
+  const keyOf = fiber => {
+    const listed = f => {
+      let n = 0
+      for (let c = f.return?.child; c; c = c.sibling) if (c.key != null && c.type === f.type) n++
+      return n > 1
+    }
+    for (let f = fiber; f; f = f.return) {
+      if (f.key != null && listed(f)) return f.key
+      if (f !== fiber && typeof f.type !== 'string') return null
+    }
+    return null
+  }
 
   // The shortest selector that names only this element, from the element up: nth-of-type
   // wherever siblings share a tag, stopping as soon as it matches just this one.
@@ -261,29 +333,40 @@
 
   const describe = el => {
     const fiber = fiberOf(el)
-    const components = fiber ? componentsOf(fiber) : []
     const tag = el.tagName.toLowerCase() + (el.classList.length ? '.' + [...el.classList].slice(0, 2).join('.') : '')
-    return { el, tag, components, fiber, text: textOf(el), selector: selectorOf(el) }
+    return { el, tag, fiber, components: fiber ? componentsOf(fiber) : [], key: fiber && keyOf(fiber), text: textOf(el), selector: selectorOf(el) }
   }
 
   const label = d => [d.components[0], d.tag].filter(Boolean).join(' › ')
-  const resolve = async d => ({ ...d, source: d.fiber ? await sourceOf(d.fiber).catch(() => null) : null })
+  const resolve = async d => ({ ...d, ...(d.fiber ? await sourceOf(d.fiber).catch(() => null) : null) })
 
   // Settings from the options page (bridge.js sends them; defaults until it does).
-  let settings = { localhost: true, selector: true, page: true, keys: {} }
+  let settings = { localhost: true, selector: false, page: true, keys: {} }
 
   // One element in the prompt (markdown):
-  //   ### 2. StatCard "-12%"
-  //   Element: `src/App.tsx:20` · `div.card.stat:nth-of-type(2) > span.delta.down`
-  //   Feedback: red is too loud
+  //   ### 1. MainCard in AgentsPage
+  //   Source: `src/pages/agents.tsx:18`
+  //   Defined in: `packages/ui/src/app-shell.tsx:42`
+  //   Stack: MainCard (ui) › AgentsPage › AgentsLayout
+  //   Key: a2
+  //   Feedback: more padding
+  // The selector only when there's no source (or the options ask for it).
   const heading = d => {
-    const text = d.text.length > 30 ? `${d.text.slice(0, 30)}…` : d.text
-    return text ? `${d.components[0] ?? d.tag} "${text}"` : [d.components[0], d.tag].filter(Boolean).join(' ')
+    const name = d.components[0] ?? d.tag
+    return [name, d.text && `"${d.text.length > 30 ? `${d.text.slice(0, 30)}…` : d.text}"`, d.context && `in ${d.context}`].filter(Boolean).join(' ')
   }
-  const item = (d, note, n) => {
-    const where = [d.source, (settings.selector || !d.source) && d.selector].filter(Boolean).map(s => `\`${s}\``).join(' · ')
-    return [`### ${n ? `${n}. ` : ''}${heading(d)}`, `Element: ${where}`, note && `Feedback: ${note}`].filter(Boolean).join('\n')
-  }
+  const item = (d, note, n) =>
+    [
+      `### ${n ? `${n}. ` : ''}${heading(d)}`,
+      d.source && `Source: \`${d.source}\``,
+      d.definedIn && `Defined in: \`${d.definedIn}\``,
+      d.stack?.length > 1 && `Stack: ${d.stack.join(' › ')}`,
+      d.key != null && `Key: ${d.key}`,
+      (settings.selector || !d.source) && `Selector: \`${d.selector}\``,
+      note && `Feedback: ${note}`,
+    ]
+      .filter(Boolean)
+      .join('\n')
 
   // ---- UI, in a shadow root so the page's CSS can't touch it ----------------------------------
 
@@ -394,8 +477,9 @@
     // Component (accent) › element, then the source and the copy shortcut, each dimmer.
     const span = (cls, text) => Object.assign(document.createElement('span'), { className: cls, textContent: text })
     const src = span('src', '')
+    const context = span('', '')
     tip.replaceChildren(
-      ...(d.components[0] ? [span('c', d.components[0]), ' › '] : []),
+      ...(d.components[0] ? [span('c', d.components[0]), context, ' › '] : []),
       d.tag,
       src,
       span('keys', `  ·  ${mac ? '⌘C' : 'Ctrl+C'} to copy`),
@@ -409,7 +493,12 @@
     }
     tip.style.display = 'block'
     place()
-    resolve(d).then(res => res.source && hovered === el && ((src.textContent = `  ${res.source}`), place()))
+    resolve(d).then(res => {
+      if (hovered !== el) return
+      if (res.context) context.textContent = ` in ${res.context}`
+      if (res.source) src.textContent = `  ${res.source}`
+      place()
+    })
   }
 
   // Off keeps the notes but hides them: pins and their buttons come back when it's turned on.
@@ -533,7 +622,7 @@
 
   const copyElement = el => {
     const d = describe(el)
-    resolve(d).then(r => copy(item(r))).then(() => flash(`Copied ${heading(d)}`))
+    resolve(d).then(r => copy(item(r)).then(() => flash(`Copied ${heading(r)}`)))
   }
 
   const openNote = el => {

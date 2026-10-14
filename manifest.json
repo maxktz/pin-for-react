@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "React Pin",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Point at UI in your React dev server and hand it to a coding agent: component, source file:line, and your notes as one prompt.",
   "homepage_url": "https://github.com/maxktz/react-pin",
   "permissions": ["activeTab", "scripting", "storage", "contextMenus"],

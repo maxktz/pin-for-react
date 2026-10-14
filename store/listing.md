@@ -23,9 +23,10 @@ Turn Pin on in your React dev server and hover anything: you see its component a
 
 • Copy one element (⌘C / Ctrl+C) as a short reference your agent can act on:
   ### StatCard "37"
-  Element: `app/StatCard.tsx:7` · `div.card.stat:nth-of-type(2) > strong.stat-value`
+  Source: `app/StatCard.tsx:7`
+  Stack: StatCard › Page
 
-• Or click several elements, write a note on each, and copy them all as one prompt: page URL, viewport, and for every note the component, file:line, a unique selector and your feedback.
+• Or click several elements, write a note on each, and copy them all as one prompt: page URL, viewport, and for every note the component, the file:line in your app, the component stack and your feedback.
 
 WORKS WITH
 • Next.js (Turbopack and webpack, client and server components)
