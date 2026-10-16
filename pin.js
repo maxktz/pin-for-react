@@ -153,7 +153,8 @@
   // The map a built file ships next to it (Vite serves files outside the app at /@fs/<path>).
   const builtMap = file =>
     cache(maps, `built:${file}`, async () => {
-      const url = /^https?:/.test(file) ? file : file.startsWith('/') && /\/@fs\//.test(performance.getEntriesByType('resource').map(e => e.name).join(' ')) ? `${location.origin}/@fs${file}` : null
+      const vite = !!document.querySelector('script[src*="/@vite/client"]')
+      const url = /^https?:/.test(file) ? file : file.startsWith('/') && vite ? `${location.origin}/@fs${file}` : null
       if (!url || !sameOrigin(url)) return null
       const json = await text(`${url.replace(/[?#].*$/, '')}.map`)
       if (!json?.trim().startsWith('{')) return null
@@ -333,12 +334,35 @@
 
   const describe = el => {
     const fiber = fiberOf(el)
-    const tag = el.tagName.toLowerCase() + (el.classList.length ? '.' + [...el.classList].slice(0, 2).join('.') : '')
+    const tag = tagOf(el)
     return { el, tag, fiber, components: fiber ? componentsOf(fiber) : [], key: fiber && keyOf(fiber), text: textOf(el), selector: selectorOf(el) }
   }
 
   const label = d => [d.components[0], d.tag].filter(Boolean).join(' › ')
-  const resolve = async d => ({ ...d, ...(d.fiber ? await sourceOf(d.fiber).catch(() => null) : null) })
+
+  // What hovering needs, kept cheap (it runs as the cursor crosses every element): the component
+  // that rendered the element and its tag. The rest (text, selector, source) waits for a pause or
+  // a copy.
+  const tagOf = el => el.tagName.toLowerCase() + (el.classList.length ? '.' + [...el.classList].slice(0, 2).join('.') : '')
+  const nameAt = el => {
+    const fiber = fiberOf(el)
+    if (!fiber) return null
+    const name = ownerName(ownerOf(fiber))
+    if (component(name)) return name
+    for (let f = fiber; f; f = f.return) if (typeof f.type !== 'string' && component(nameOf(f.type))) return nameOf(f.type)
+    return null
+  }
+  // Source lookups by element, so coming back to one is instant. Text, key and selector are read
+  // fresh at copy time (they change as the page does).
+  const resolved = new WeakMap()
+  const sourceAt = el => {
+    if (!resolved.has(el)) {
+      const fiber = fiberOf(el)
+      resolved.set(el, fiber ? sourceOf(fiber).catch(() => ({})) : Promise.resolve({}))
+    }
+    return resolved.get(el)
+  }
+  const resolveEl = async el => ({ ...describe(el), ...(await sourceAt(el)) })
 
   // Settings from the options page (bridge.js sends them; defaults until it does).
   let settings = { localhost: true, selector: false, page: true, keys: {} }
@@ -469,21 +493,19 @@
     flash.t = setTimeout(() => (toast.style.display = 'none'), 1400)
   }
 
+  // The highlight and tooltip for the element under the cursor. The source shows once the cursor
+  // rests on it (REST ms), so sweeping across a page doesn't start a lookup for every element.
+  const REST = 120
   const show = el => {
     hovered = el
     const r = el.getBoundingClientRect()
     Object.assign(box.style, { display: 'block', left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` })
-    const d = describe(el)
     // Component (accent) › element, then the source and the copy shortcut, each dimmer.
     const span = (cls, text) => Object.assign(document.createElement('span'), { className: cls, textContent: text })
+    const name = nameAt(el)
     const src = span('src', '')
     const context = span('', '')
-    tip.replaceChildren(
-      ...(d.components[0] ? [span('c', d.components[0]), context, ' › '] : []),
-      d.tag,
-      src,
-      span('keys', `  ·  ${mac ? '⌘C' : 'Ctrl+C'} to copy`),
-    )
+    tip.replaceChildren(...(name ? [span('c', name), context, ' › '] : []), tagOf(el), src, span('keys', `  ·  ${mac ? '⌘C' : 'Ctrl+C'} to copy`))
     // 4px above the element, or below it when there's no room; kept inside the window (again once
     // the source arrives, which makes it wider).
     const place = () => {
@@ -493,12 +515,16 @@
     }
     tip.style.display = 'block'
     place()
-    resolve(d).then(res => {
+    clearTimeout(show.rest)
+    show.rest = setTimeout(() => {
       if (hovered !== el) return
-      if (res.context) context.textContent = ` in ${res.context}`
-      if (res.source) src.textContent = `  ${res.source}`
-      place()
-    })
+      sourceAt(el).then(res => {
+        if (hovered !== el) return
+        if (res.context) context.textContent = ` in ${res.context}`
+        if (res.source) src.textContent = `  ${res.source}`
+        place()
+      })
+    }, resolved.has(el) ? 0 : REST)
   }
 
   // Off keeps the notes but hides them: pins and their buttons come back when it's turned on.
@@ -621,14 +647,13 @@
   }
 
   const copyElement = el => {
-    const d = describe(el)
-    resolve(d).then(r => copy(item(r)).then(() => flash(`Copied ${heading(r)}`)))
+    resolveEl(el).then(r => copy(item(r)).then(() => flash(`Copied ${heading(r)}`)))
   }
 
   const openNote = el => {
     editing = el
     const r = el.getBoundingClientRect()
-    pop.querySelector('.what').textContent = label(describe(el))
+    pop.querySelector('.what').textContent = [nameAt(el), tagOf(el)].filter(Boolean).join(' › ')
     pop.style.display = 'block'
     pop.style.left = `${Math.min(innerWidth - 290, Math.max(8, r.left))}px`
     pop.style.top = `${r.bottom + 8 + 130 < innerHeight ? r.bottom + 8 : Math.max(8, r.top - 138)}px`
@@ -645,7 +670,7 @@
     const note = area.value.trim()
     const el = editing
     closeNote()
-    if (el && note) notes.push({ d: await resolve(describe(el)), note })
+    if (el && note) notes.push({ d: await resolveEl(el), note })
     redrawPins()
   }
 
@@ -687,10 +712,18 @@
     }
   }, true)
 
+  // At most one hover update per frame, for the latest cursor position.
+  let point = null
   addEventListener('mousemove', e => {
     if (!on || editing || ours(e)) return
-    const el = document.elementFromPoint(e.clientX, e.clientY)
-    if (el && el !== host && el !== hovered) show(el)
+    if (!point) requestAnimationFrame(() => {
+      const { x, y } = point
+      point = null
+      if (!on || editing) return
+      const el = document.elementFromPoint(x, y)
+      if (el && el !== host && el !== hovered) show(el)
+    })
+    point = { x: e.clientX, y: e.clientY }
   }, true)
 
   // While on, clicks pick elements instead of reaching the page.
@@ -707,7 +740,17 @@
     }, true)
   }
 
-  addEventListener('scroll', () => (redrawPins(), hovered && on && !editing && show(hovered)), true)
+  // Scrolling (any container) moves the pins and the highlight: once per frame.
+  let scrolling = false
+  addEventListener('scroll', () => {
+    if (scrolling || (!on && !notes.length)) return
+    scrolling = true
+    requestAnimationFrame(() => {
+      scrolling = false
+      redrawPins()
+      if (hovered && on && !editing) show(hovered)
+    })
+  }, true)
   addEventListener('resize', () => (redrawPins(), placeBar()))
 
   pop.querySelector('.add').onclick = addNote
